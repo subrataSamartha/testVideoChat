@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useEffect } from "react";
 
 function App() {
+  /* --------------------------------------- agora rtc setup ------------------------------------- */
+
   const APP_ID = "c58def5b2816419bab70004854531f42";
   let uid = uuidv4();
 
@@ -22,6 +24,7 @@ function App() {
     await client.join(APP_ID, roomId, token, uid);
 
     client.on("user-published", handleUserPublished);
+    console.log("after user-published");
     client.on("user-left", handleUserLeft);
 
     joinStream();
@@ -36,12 +39,15 @@ function App() {
       .getElementById("streams__container")
       .insertAdjacentHTML("beforeend", player);
 
+    document
+      .getElementById(`user-container-${uid}`)
+      .addEventListener("click", expandVideoFrame);
+
     localTracks[1].play(`user-${uid}`);
     await client.publish([localTracks[0], localTracks[1]]);
   };
 
   let handleUserPublished = async (user, mediaType) => {
-    console.log("inside join user");
     remoteUsers[user.uid] = user;
 
     await client.subscribe(user, mediaType);
@@ -55,6 +61,14 @@ function App() {
       document
         .getElementById("streams__container")
         .insertAdjacentHTML("beforeend", player);
+      document
+        .getElementById(`user-container-${user.uid}`)
+        .addEventListener("click", expandVideoFrame);
+    }
+
+    if (displayFrame && displayFrame.style && displayFrame.style.display) {
+      player.style.height = "100px";
+      player.style.width = "100px";
     }
 
     if (mediaType === "video") {
@@ -69,10 +83,82 @@ function App() {
   let handleUserLeft = async (user) => {
     delete remoteUsers[user.uid];
     document.getElementById(`user-container-${user.uid}`).remove();
+
+    if (userIdInDisplayFrame === `user-container-${user.uid}`) {
+      displayFrame.style.display = null;
+
+      let videoFrames = document.getElementsByClassName("video__container");
+
+      for (let i = 0; i < videoFrames.length; i++) {
+        videoFrames[i].style.height = "300px";
+        videoFrames[i].style.width = "300px";
+      }
+    }
   };
 
   useEffect(() => {
     joinRoomInit();
+  }, []);
+
+  /* --------------------------------------- room features ------------------------------------- */
+
+  let displayFrame;
+  let videoFrames;
+  let userIdInDisplayFrame = null;
+
+  let expandVideoFrame = (e) => {
+    displayFrame = document.getElementById("stream__box");
+    let child = displayFrame.children[0];
+
+    if (child) {
+      document.getElementById("streams__container").appendChild(child);
+    }
+
+    displayFrame.style.display = "block";
+
+    displayFrame.appendChild(e.currentTarget);
+
+    userIdInDisplayFrame = e.currentTarget.id;
+
+    videoFrames = document.getElementsByClassName("video__container");
+    // console.log(videoFrames);
+    for (let i = 0; i < videoFrames.length; i++) {
+      if (videoFrames[i].id !== userIdInDisplayFrame) {
+        videoFrames[i].style.height = "100px";
+        videoFrames[i].style.width = "100px";
+      }
+    }
+  };
+
+  function addEventListenerToDiv() {
+    videoFrames = document.getElementsByClassName("video__container");
+    for (let i = 0; i < videoFrames.length; i++) {
+      videoFrames[i].addEventListener("click", expandVideoFrame);
+    }
+  }
+
+  let hideDisplayFrame = () => {
+    userIdInDisplayFrame = null;
+    displayFrame.style.display = null;
+
+    let child = displayFrame.children[0];
+
+    document.getElementById("streams__container").appendChild(child);
+
+    for (let i = 0; i < videoFrames.length; i++) {
+      videoFrames[i].style.height = "300px";
+      videoFrames[i].style.width = "300px";
+    }
+  };
+
+  useEffect(() => {
+    addEventListenerToDiv();
+  }, []);
+
+  useEffect(() => {
+    document
+      .getElementById("stream__box")
+      .addEventListener("click", hideDisplayFrame);
   }, []);
 
   return (
@@ -241,20 +327,7 @@ function App() {
           <section id="stream__container">
             <div id="stream__box"></div>
 
-            <div id="streams__container">
-              <div className="video__container" id="user-container-1">
-                <h1>1</h1>
-              </div>
-              <div className="video__container" id="user-container-2">
-                <h1>2</h1>
-              </div>
-              <div className="video__container" id="user-container-3">
-                <h1>3</h1>
-              </div>
-              <div className="video__container" id="user-container-4">
-                <h1>4</h1>
-              </div>
-            </div>
+            <div id="streams__container"></div>
             <div class="stream__actions">
               <button>
                 <svg
