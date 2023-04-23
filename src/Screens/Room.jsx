@@ -3,10 +3,10 @@ import AgoraRTC from "agora-rtc-sdk-ng";
 import { v4 as uuidv4 } from "uuid";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
+import AgoraRTM from "agora-rtm-sdk";
 
 const Room = () => {
   const { state } = useLocation();
-  console.log("op", state);
   const [toggleCameraClass, setToggleCameraClass] = useState(true);
   const [toggleMicClass, setToggleMicClass] = useState(true);
   const [toggleScreenClass, setToggleScreenClass] = useState(false);
@@ -14,12 +14,17 @@ const Room = () => {
   /* --------------------------------------- agora rtc setup ------------------------------------- */
 
   const APP_ID = "c58def5b2816419bab70004854531f42";
-  let uid = state.userId || uuidv4();
+  let displayName = state.userId;
+  let uid = uuidv4();
 
   let token = null;
   let client;
 
+  let rtmClient;
+  let channel;
+
   let roomId = state.roomName || "main";
+  //   let roomId = "main";
 
   let localTracks = [];
   let remoteUsers = {};
@@ -27,7 +32,50 @@ const Room = () => {
   let localScreenTracks;
   let sharingScreen = false;
 
+  let handleMemberJoined = async (MemberId) => {
+    console.log("a new member joined", MemberId);
+    addMemberToDom(MemberId);
+
+    // update the total number of members when user joined
+    let members = await channel.getMembers();
+    updateMemberTotal(members);
+  };
+
+  let updateMemberTotal = async (members) => {
+    let total = document.getElementById("members__count");
+    total.innerText = members.length;
+  };
+
+  let handleMemberLeft = async (MemberId) => {
+    console.log("a new member left", MemberId);
+    removeMemberFromDom(MemberId);
+
+    // update the total number of members when user joined
+    let members = await channel.getMembers();
+    updateMemberTotal(members);
+  };
+
+  let removeMemberFromDom = async (MemberId) => {
+    let memberWrapper = document.getElementById(`member__${MemberId}__wrapper`);
+    memberWrapper.remove();
+  };
+
   let joinRoomInit = async () => {
+    // create a new session for messaging
+    rtmClient = await AgoraRTM.createInstance(APP_ID);
+    await rtmClient.login({ uid, token });
+
+    await rtmClient.addOrUpdateLocalUserAttributes({ name: displayName });
+
+    channel = await rtmClient.createChannel(roomId);
+    await channel.join();
+
+    channel.on("MemberJoined", handleMemberJoined);
+    channel.on("MemberLeft", handleMemberLeft);
+
+    getMembers();
+
+    // create a new client and connect
     client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     await client.join(APP_ID, roomId, token, uid);
 
@@ -37,6 +85,37 @@ const Room = () => {
 
     joinStream();
   };
+
+  let addMemberToDom = async (MemberId) => {
+    let { name } = await rtmClient.getUserAttributesByKeys(MemberId, ["name"]);
+
+    let memberWrapper = document.getElementById("member__list");
+    let memberItem = `<div class="member__wrapper" id="member__${MemberId}__wrapper">
+                        <span class="green__icon"></span>
+                        <p class="member_name">${name}</p>
+                      </div>`;
+
+    memberWrapper.insertAdjacentHTML("beforeend", memberItem);
+  };
+
+  let getMembers = async () => {
+    let members = await channel.getMembers();
+
+    updateMemberTotal(members);
+
+    for (let i = 0; i < members.length; i++) {
+      addMemberToDom(members[i]);
+    }
+  };
+
+  let leaveChannel = async () => {
+    await channel.leave();
+    await rtmClient.logout();
+  };
+
+  useEffect(() => {
+    window.addEventListener("beforeunload", leaveChannel);
+  }, []);
 
   let joinStream = async () => {
     localTracks = await AgoraRTC.createMicrophoneAndCameraTracks(
@@ -331,117 +410,14 @@ const Room = () => {
           <section id="members__container">
             <div id="members__header">
               <p>Participants</p>
-              <strong id="members__count">27</strong>
+              <strong id="members__count">0</strong>
             </div>
 
             <div id="member__list">
-              <div class="member__wrapper" id="member__1__wrapper">
+              {/* <div class="member__wrapper" id="member__1__wrapper">
                 <span class="green__icon"></span>
                 <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Shahriar P. Shuvo 👋:</p>
-              </div>
-
-              <div class="member__wrapper" id="member__1__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Sulammita</p>
-              </div>
-
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
-              <div class="member__wrapper" id="member__2__wrapper">
-                <span class="green__icon"></span>
-                <p class="member_name">Dennis Ivy</p>
-              </div>
+              </div> */}
             </div>
           </section>
           <section id="stream__container">
