@@ -2,7 +2,7 @@ import React from "react";
 import AgoraRTC from "agora-rtc-sdk-ng";
 import { v4 as uuidv4 } from "uuid";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { json, useLocation } from "react-router-dom";
 import AgoraRTM from "agora-rtm-sdk";
 
 const Room = () => {
@@ -60,6 +60,13 @@ const Room = () => {
     memberWrapper.remove();
   };
 
+  let handleChannelMessage = async (messageData, MemberId) => {
+    let data = JSON.parse(messageData.text);
+    if (data.type === "chat") {
+      addMessageToDom(data.displayName, data.message);
+    }
+  };
+
   let joinRoomInit = async () => {
     // create a new session for messaging
     rtmClient = await AgoraRTM.createInstance(APP_ID);
@@ -72,6 +79,7 @@ const Room = () => {
 
     channel.on("MemberJoined", handleMemberJoined);
     channel.on("MemberLeft", handleMemberLeft);
+    channel.on("ChannelMessage", handleChannelMessage);
 
     getMembers();
 
@@ -101,11 +109,45 @@ const Room = () => {
   let getMembers = async () => {
     let members = await channel.getMembers();
 
+    // update the total number of members
     updateMemberTotal(members);
 
     for (let i = 0; i < members.length; i++) {
       addMemberToDom(members[i]);
     }
+  };
+
+  let sendMessage = (e) => {
+    e.preventDefault();
+
+    let message = e.target.message.value;
+    channel.sendMessage({
+      text: JSON.stringify({
+        type: "chat",
+        message: message,
+        displayName: displayName,
+      }),
+    });
+    addMessageToDom(displayName, message);
+    e.target.reset();
+  };
+
+  let addMessageToDom = (name, message) => {
+    let messageWrapper = document.getElementById("messages");
+    let newMessage = `<div class="message__wrapper">
+                        <div class="message__body">
+                            <strong class="message__author">${name}</strong>
+                            <p class="message__text">
+                                ${message}
+                            </p>
+                        </div>
+                      </div>`;
+    messageWrapper.insertAdjacentHTML("beforeend", newMessage);
+
+    let lastMessage = document.querySelector(
+      "#messages .message__wrapper:last-child"
+    );
+    if (lastMessage) lastMessage.scrollIntoView({ behavior: "smooth" });
   };
 
   let leaveChannel = async () => {
@@ -115,6 +157,11 @@ const Room = () => {
 
   useEffect(() => {
     window.addEventListener("beforeunload", leaveChannel);
+  }, []);
+
+  useEffect(() => {
+    let message__form = document.getElementById("message__form");
+    message__form.addEventListener("submit", sendMessage);
   }, []);
 
   let joinStream = async () => {
@@ -470,139 +517,15 @@ const Room = () => {
 
           <section id="messages__container">
             <div id="messages">
-              <div class="message__wrapper">
+              {/* <div class="message__wrapper">
                 <div class="message__body__bot">
                   <strong class="message__author__bot">🤖 Mumble Bot</strong>
                   <p class="message__text__bot">
                     Welcome to the room, Don't be shy, say hello!
                   </p>
                 </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body__bot">
-                  <strong class="message__author__bot">🤖 Mumble Bot</strong>
-                  <p class="message__text__bot">
-                    Dennis Ivy just entered the room!
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Dennis Ivy</strong>
-                  <p class="message__text">
-                    Does anyone know hen he will be back?
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body__bot">
-                  <strong class="message__author__bot">🤖 Mumble Bot</strong>
-                  <p class="message__text__bot">
-                    Sulamita just entered the room!
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body__bot">
-                  <strong class="message__author__bot">🤖 Mumble Bot</strong>
-                  <p class="message__text__bot">
-                    Shahriar P. Shuvo just entered the room!
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Sulamita</strong>
-                  <p class="message__text"> Great stream!</p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Dennis Ivy</strong>
-                  <p class="message__text">
-                    {" "}
-                    Convert RGB color codes to HEX HTML format for use in web
-                    design and CSS.
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Shahriar P. Shuvo 👋</strong>
-                  <p class="message__text">
-                    Does anyone know hen he will be back?
-                  </p>
-                </div>
-              </div>
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Sulamita</strong>
-                  <p class="message__text">Great stream!</p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Dennis Ivy</strong>
-                  <p class="message__text">
-                    Convert RGB color codes to HEX HTML format for use in web
-                    design and CSS.
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Shahriar P. Shuvo 👋</strong>
-                  <p class="message__text">
-                    Does anyone know hen he will be back?
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Sulamita</strong>
-                  <p class="message__text">Great stream!</p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body__bot">
-                  <strong class="message__author__bot">🤖 Mumble Bot</strong>
-                  <p class="message__text__bot">
-                    👋 Sulamita has left the room
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Dennis Ivy</strong>
-                  <p class="message__text">
-                    Convert RGB color codes to HEX HTML format for use in web
-                    design and CSS.
-                  </p>
-                </div>
-              </div>
-
-              <div class="message__wrapper">
-                <div class="message__body">
-                  <strong class="message__author">Shahriar P. Shuvo 👋</strong>
-                  <p class="message__text">
-                    Does anyone know hen he will be back?
-                  </p>
-                </div>
-              </div>
+              </div> */}
             </div>
-
             <form id="message__form">
               <input
                 type="text"
